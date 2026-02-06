@@ -1,0 +1,52 @@
+# GPT-2 Medium (355M) Configuration
+# Recommended for FSDP training experiments
+
+model:
+  name: "gpt2-medium"
+  vocab_size: 50257
+  hidden_size: 1024
+  num_layers: 24
+  num_heads: 16
+  intermediate_size: 4096
+  max_seq_len: 1024
+  dropout: 0.1
+  attention_dropout: 0.1
+  use_flash_attention: true
+  gradient_checkpointing: true  # Enable for larger models
+
+training:
+  batch_size: 4  # Smaller per-GPU batch for larger model
+  gradient_accumulation_steps: 8
+  # Effective batch size = 4 * 8 = 32 per GPU
+
+  learning_rate: 3e-4
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  grad_clip: 1.0
+
+  max_steps: 20000
+  warmup_steps: 2000
+
+  log_interval: 10
+  eval_interval: 500
+  save_interval: 2000
+
+distributed:
+  backend: "nccl"
+  mixed_precision: "bf16"
+
+fsdp:
+  sharding_strategy: "FULL_SHARD"  # ZeRO-3 equivalent
+  cpu_offload: false
+  activation_checkpointing: true
+  backward_prefetch: "BACKWARD_PRE"
+  limit_all_gathers: true
+
+data:
+  dataset: "openwebtext"
+  num_workers: 4
+
+checkpoint:
+  dir: "checkpoints/gpt2-medium"
+  resume_from: null

@@ -1,0 +1,45 @@
+# GPT-2 Small (124M) Configuration
+# Good for learning and single GPU experimentation
+
+model:
+  name: "gpt2-small"
+  vocab_size: 50257
+  hidden_size: 768
+  num_layers: 12
+  num_heads: 12
+  intermediate_size: 3072  # 4 * hidden_size
+  max_seq_len: 1024
+  dropout: 0.1
+  attention_dropout: 0.1
+  use_flash_attention: true
+  gradient_checkpointing: false
+
+training:
+  batch_size: 8
+  gradient_accumulation_steps: 4
+  # Effective batch size = 8 * 4 = 32 per GPU
+
+  learning_rate: 6e-4
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  grad_clip: 1.0
+
+  max_steps: 10000
+  warmup_steps: 1000
+
+  log_interval: 10
+  eval_interval: 500
+  save_interval: 1000
+
+distributed:
+  backend: "nccl"
+  mixed_precision: "bf16"  # Options: fp32, fp16, bf16
+
+data:
+  dataset: "openwebtext"  # or path to custom dataset
+  num_workers: 4
+
+checkpoint:
+  dir: "checkpoints/gpt2-small"
+  resume_from: null
