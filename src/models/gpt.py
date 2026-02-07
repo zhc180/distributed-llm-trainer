@@ -113,7 +113,10 @@ def rotate_half(x: torch.Tensor) -> torch.Tensor:
 
     Hint: Use slicing x[..., :half] and torch.cat()
     """
-    raise NotImplementedError("Implement rotate_half")
+    first_half = x[..., :x.shape[-1] // 2]
+    second_half = x[..., x.shape[-1] // 2:]
+    return torch.cat([-second_half, first_half], dim=-1)
+
 
 
 def apply_rotary_pos_emb(q: torch.Tensor, k: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -138,7 +141,10 @@ def apply_rotary_pos_emb(q: torch.Tensor, k: torch.Tensor, cos: torch.Tensor, si
 
     Hint: Apply the same rotation formula to both q and k
     """
-    raise NotImplementedError("Implement apply_rotary_pos_emb")
+    q_rotated = q * cos + rotate_half(q) * sin
+    k_rotated = k * cos + rotate_half(k) * sin
+
+    return q_rotated, k_rotated
 
 
 class CausalSelfAttention(nn.Module):
