@@ -63,7 +63,8 @@ class RMSNorm(nn.Module):
         Hint: This can be done in one line!
               torch.rsqrt() = 1 / sqrt()
         """
-        raise NotImplementedError("Implement RMSNorm forward")
+        rms = torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        return x * rms * self.weight
 
 
 class RotaryPositionEmbedding(nn.Module):
