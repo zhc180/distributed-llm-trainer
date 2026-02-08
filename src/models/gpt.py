@@ -271,7 +271,12 @@ class MLP(nn.Module):
         while up_proj learns WHAT values to pass. This separation
         gives the model more expressivity.
         """
-        raise NotImplementedError("Implement SwiGLU forward pass")
+        gate_proj = self.gate_proj(x)
+        up_proj = self.up_proj(x)
+        x = F.silu(gate_proj) * up_proj
+        x = self.down_proj(x)
+        x = self.dropout(x)
+        return x
 
 
 class TransformerBlock(nn.Module):
