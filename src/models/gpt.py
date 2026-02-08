@@ -227,8 +227,12 @@ class CausalSelfAttention(nn.Module):
             #   q, k, v: [batch, num_heads, seq_len, head_dim]
             #   attn_weights: [batch, num_heads, seq_len, seq_len]
             #   attn_output: [batch, num_heads, seq_len, head_dim]
+            attn_scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.head_dim)
+            causal_mask = torch.triu(torch.ones(seq_len, seq_len, device=hidden_states.device, dtype=torch.bool), diagonal=1)
+            attn_scores = attn_scores.masked_fill(causal_mask.unsqueeze(0).unsqueeze(0), float('-inf'))
+            attn_weights = F.softmax(attn_scores, dim=-1, dtype=torch.float32).to(attn_scores.dtype)
+            attn_output = self.attn_dropout(attn_weights) @ v
 
-            raise NotImplementedError("Implement manual attention computation")
 
         # Reshape and project output
         attn_output = attn_output.transpose(1, 2).contiguous().view(batch_size, seq_len, -1)
