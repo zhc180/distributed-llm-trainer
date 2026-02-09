@@ -377,7 +377,13 @@ class GPT(nn.Module):
         Hint: Use isinstance() to check module type
               Use in-place init functions (the ones ending with _)
         """
-        raise NotImplementedError("Implement _init_weights")
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
+        # For other types (RMSNorm, etc.), we can rely on their default initialization
 
     def forward(
         self,
@@ -429,7 +435,24 @@ class GPT(nn.Module):
         Hint: Check self.gradient_checkpointing and self.training for step 2
               Use .contiguous() before .view() to avoid memory layout errors
         """
-        raise NotImplementedError("Implement GPT forward pass")
+        hidden_states = self.embed_tokens(input_ids)
+
+        for layer in self.layers:
+            if self.gradient_checkpointing and self.training:
+                hidden_states = checkpoint(layer, hidden_states, attention_mask, use_reentrant=False)
+            else:
+                hidden_states = layer(hidden_states, attention_mask)
+
+        hidden_states = self.norm(hidden_states)
+        logits = self.lm_head(hidden_states)
+        
+        loss = None
+        if labels is not None:
+            shift_logits = logits[..., :-1, :].contiguous()
+            shift_labels = labels[..., 1:].contiguous()
+            loss = F.cross_entropy(shift_logits.view(-1, self.config.vocab_size), shift_labels.view(-1))
+
+        return logits, loss
 
     def generate(
         self,
