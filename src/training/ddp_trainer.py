@@ -219,8 +219,6 @@ class DistributedTrainer:
     def get_lr(self, step: int) -> float:
         """Cosine learning rate schedule with warmup.
 
-        TODO: Implement learning rate schedule
-
         This is the standard schedule used in most LLM training:
 
         Phase 1 - Linear Warmup (step < warmup_steps):
@@ -245,8 +243,15 @@ class DistributedTrainer:
         """
         import math
         cfg = self.training_config
+        if step < cfg.warmup_steps:
+            lr = cfg.learning_rate * (step / cfg.warmup_steps)
+        else:
+            decay_ratio = (step - cfg.warmup_steps) / (cfg.max_steps - cfg.warmup_steps)
+            coeff = 0.5 * (1 + math.cos(math.pi * decay_ratio))
+            min_lr = 0.1 * cfg.learning_rate
+            lr = min_lr + coeff * (cfg.learning_rate - min_lr)
+        return lr
 
-        raise NotImplementedError("Implement cosine LR schedule with warmup")
 
     def train_step(self, batch: dict) -> dict:
         """Single training step with gradient accumulation.
