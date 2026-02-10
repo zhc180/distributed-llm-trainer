@@ -156,8 +156,6 @@ class DistributedTrainer:
     def _setup_optimizer(self):
         """Setup AdamW optimizer with weight decay.
 
-        TODO: Implement optimizer setup with parameter group separation
-
         Not all parameters should get weight decay! This is a common mistake.
         Weight decay is L2 regularization - it pushes weights toward zero.
         But biases and normalization layers shouldn't be regularized.
@@ -196,8 +194,27 @@ class DistributedTrainer:
           adaptive learning rates. AdamW applies it directly to weights.
         """
         cfg = self.training_config
+        decay_params, no_decay_params = [], []
+        for name, param in self.model.named_parameters():
+            if not param.requires_grad:
+                continue
+            if "bias" in name or "norm" in name:
+                no_decay_params.append(param)
+            else:
+                decay_params.append(param)
+        
+        optim_groups = [
+            {"params": decay_params, "weight_decay": cfg.weight_decay},
+            {"params": no_decay_params, "weight_decay": 0.0},
+        ]
 
-        raise NotImplementedError("Implement _setup_optimizer")
+        self.optimizer = torch.optim.AdamW(
+            optim_groups,
+            lr=cfg.learning_rate,
+            betas=(cfg.beta1, cfg.beta2),
+            fused=torch.cuda.is_available(),
+        )
+        
 
     def get_lr(self, step: int) -> float:
         """Cosine learning rate schedule with warmup.
