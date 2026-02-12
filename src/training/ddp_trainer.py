@@ -504,6 +504,9 @@ def main():
         choices=["dummy", "tinystories", "openwebtext"],
     )
     parser.add_argument("--data_path", type=str, default=None)
+    parser.add_argument("--max_tokens", type=int, default=None)
+    parser.add_argument("--streaming", action="store_true")
+    parser.add_argument("--cache_max_tokens", type=int, default=None)
     args = parser.parse_args()
 
     # Model config
@@ -537,6 +540,9 @@ def main():
             distributed=trainer.distributed,
             rank=trainer.rank,
             world_size=trainer.world_size,
+            max_tokens=args.max_tokens,
+            streaming=args.streaming,
+            cache_max_tokens=args.cache_max_tokens,
         )
     elif args.dataset == "openwebtext":
         if args.data_path is None:
@@ -548,6 +554,9 @@ def main():
             distributed=trainer.distributed,
             rank=trainer.rank,
             world_size=trainer.world_size,
+            max_tokens=args.max_tokens,
+            streaming=args.streaming,
+            cache_max_tokens=args.cache_max_tokens,
         )
     else:
         dataloader = create_dummy_dataloader(
@@ -576,7 +585,11 @@ def main():
             data_iter = iter(dataloader)
             batch = next(data_iter)
 
-        batch = {"input_ids": batch[0]}
+        if isinstance(batch, (list, tuple)):
+            input_ids = batch[0]
+        else:
+            input_ids = batch
+        batch = {"input_ids": input_ids}
 
         # Train step
         metrics = trainer.train_step(batch)
