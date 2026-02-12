@@ -256,8 +256,6 @@ class DistributedTrainer:
     def train_step(self, batch: dict) -> dict:
         """Single training step with gradient accumulation.
 
-        TODO: Implement the training step
-
         Gradient accumulation simulates larger batch sizes by:
         1. Splitting the batch into micro-batches
         2. Running forward+backward on each micro-batch
@@ -294,7 +292,62 @@ class DistributedTrainer:
         """
         cfg = self.training_config
 
-        raise NotImplementedError("Implement train_step with gradient accumulation")
+        self.model.train()
+        self.optimizer.zero_grad(set_to_none=True)
+        total_loss = 0.0
+
+        input_ids = batch["input_ids"].to(self.device)
+        labels = input_ids.clone()
+
+        micro_bs = input_ids.shape[0] // cfg.gradient_accumulation_steps
+
+        for micro_step in range(cfg.gradient_accumulation_steps):
+            start = micro_bs * micro_step
+            end = start + micro_bs
+
+            micro_input = input_ids[start:end]
+            micro_labels = labels[start:end]
+
+            sync_ctx = (
+                self.model.no_sync()
+                if self.distributed and micro_step < cfg.gradient_accumulation_steps - 1 else nullcontext()
+            )
+
+            with sync_ctx:
+                with self.autocast_ctx:
+                    _, loss = self.model(micro_input, labels=micro_labels)
+                    loss = loss / cfg.gradient_accumulation_steps
+                
+                if self.scaler is not None:
+                    self.scaler.scale(loss).backward()
+                else:
+                    loss.backward()
+
+            
+            total_loss += loss.item()
+
+        if cfg.grad_clip > 0:
+            if self.scaler is not None:
+                self.scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), cfg.grad_clip)
+    
+        if self.scaler is not None:
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+        else:
+            self.optimizer.step()
+
+        self.optimizer.zero_grad(set_to_none=True)
+
+        lr = self.get_lr(self.global_step)
+        for param_group in self.optimizer.param_groups:
+            param_group["lr"] = lr
+
+        self.global_step += 1
+        self.tokens_seen += input_ids.numel() * self.world_size
+
+        return {"loss": total_loss, "lr": lr, "tokens": self.tokens_seen}
+
 
     def save_checkpoint(self, path: str):
         """Save training checkpoint.
