@@ -543,6 +543,7 @@ def main():
             max_tokens=args.max_tokens,
             streaming=args.streaming,
             cache_max_tokens=args.cache_max_tokens,
+            num_workers=0 if args.streaming else 2,
         )
     elif args.dataset == "openwebtext":
         if args.data_path is None:
@@ -557,6 +558,7 @@ def main():
             max_tokens=args.max_tokens,
             streaming=args.streaming,
             cache_max_tokens=args.cache_max_tokens,
+            num_workers=0 if args.streaming else 2,
         )
     else:
         dataloader = create_dummy_dataloader(

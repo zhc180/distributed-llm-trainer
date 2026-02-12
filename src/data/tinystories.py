@@ -25,6 +25,7 @@ class TinyStoriesDataset(Dataset):
     def __init__(self, cfg: TinyStoriesConfig):
         self.cfg = cfg
         self.tokenizer = GPT2TokenizerFast.from_pretrained(cfg.tokenizer_name)
+        self.tokenizer.model_max_length = 10**9
 
         with open(cfg.path, "r", encoding="utf-8") as f:
             text = f.read()
@@ -57,6 +58,7 @@ class TinyStoriesIterableDataset(IterableDataset):
         self.rank = rank
         self.world_size = world_size
         self.tokenizer = GPT2TokenizerFast.from_pretrained(cfg.tokenizer_name)
+        self.tokenizer.model_max_length = 10**9
         self._cache = OrderedDict()
         self._cache_tokens = 0
 

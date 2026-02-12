@@ -1,5 +1,6 @@
 """OpenWebText dataloader utilities."""
 import gzip
+import os
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Optional
@@ -26,6 +27,7 @@ class OpenWebTextDataset(Dataset):
     def __init__(self, cfg: OpenWebTextConfig):
         self.cfg = cfg
         self.tokenizer = GPT2TokenizerFast.from_pretrained(cfg.tokenizer_name)
+        self.tokenizer.model_max_length = 10**9
 
         if cfg.path.endswith(".gz"):
             with gzip.open(cfg.path, "rt", encoding="utf-8") as f:
@@ -62,6 +64,7 @@ class OpenWebTextIterableDataset(IterableDataset):
         self.rank = rank
         self.world_size = world_size
         self.tokenizer = GPT2TokenizerFast.from_pretrained(cfg.tokenizer_name)
+        self.tokenizer.model_max_length = 10**9
         self._cache = OrderedDict()
         self._cache_tokens = 0
 
@@ -141,6 +144,15 @@ def create_openwebtext_dataloader(
     num_workers: int = 2,
 ) -> DataLoader:
     """Create an OpenWebText dataloader with fixed-length token sequences."""
+    if not os.path.exists(path):
+        if path.endswith(".gz"):
+            candidate = path[:-3]
+        else:
+            candidate = f"{path}.gz"
+        if os.path.exists(candidate):
+            path = candidate
+        else:
+            raise FileNotFoundError(f"OpenWebText file not found: {path}")
     cfg = OpenWebTextConfig(
         path=path,
         seq_len=seq_len,
