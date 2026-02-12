@@ -68,22 +68,54 @@ pip install transformers datasets wandb
 pip install flash-attn --no-build-isolation  # Optional, for faster attention
 ```
 
-### 2. Single GPU Training (Start Here!)
+### 2. Download Datasets (TinyStories + OpenWebText sample)
+
+Run these commands from `src/data` so the files land in the data folder:
+
+```bash
+wget https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-train.txt
+wget https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-valid.txt
+
+wget https://huggingface.co/datasets/stanford-cs336/owt-sample/resolve/main/owt_train.txt.gz
+gunzip owt_train.txt.gz
+wget https://huggingface.co/datasets/stanford-cs336/owt-sample/resolve/main/owt_valid.txt.gz
+```
+
+### 3. Single GPU Training (Start Here!)
 
 ```bash
 python src/training/ddp_trainer.py --config configs/small_model.yaml
 ```
 
-### 3. Multi-GPU DDP Training
+### 4. Multi-GPU DDP Training
 
 ```bash
 torchrun --nproc_per_node=2 src/training/ddp_trainer.py --config configs/small_model.yaml
 ```
 
-### 4. FSDP Training
+### 5. FSDP Training
 
 ```bash
 torchrun --nproc_per_node=4 src/training/fsdp_trainer.py --config configs/medium_model.yaml
+```
+
+### 6. Choose a Dataset (dummy / tinystories / openwebtext)
+
+```bash
+# TinyStories
+python src/training/ddp_trainer.py \
+  --dataset tinystories \
+  --data_path src/data/TinyStoriesV2-GPT4-train.txt \
+  --model_size small --max_steps 50 --batch_size 4
+
+# OpenWebText sample
+python src/training/ddp_trainer.py \
+  --dataset openwebtext \
+  --data_path src/data/owt_train.txt \
+  --model_size small --max_steps 50 --batch_size 4
+
+# Dummy (default)
+python src/training/ddp_trainer.py --dataset dummy --model_size small --max_steps 50
 ```
 
 ## 📊 Key Concepts Explained

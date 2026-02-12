@@ -25,6 +25,8 @@ from torch.utils.data import DataLoader, DistributedSampler
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from data.openwebtext import create_openwebtext_dataloader
+from data.tinystories import create_tinystories_dataloader
 from models.gpt import GPT, count_parameters
 from models.config import GPTConfig
 
@@ -495,6 +497,13 @@ def main():
     parser.add_argument("--max_steps", type=int, default=1000)
     parser.add_argument("--mixed_precision", type=str, default="bf16", choices=["fp32", "fp16", "bf16"])
     parser.add_argument("--gradient_checkpointing", action="store_true")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="dummy",
+        choices=["dummy", "tinystories", "openwebtext"],
+    )
+    parser.add_argument("--data_path", type=str, default=None)
     args = parser.parse_args()
 
     # Model config
@@ -518,14 +527,37 @@ def main():
     trainer = DistributedTrainer(model_config, training_config)
 
     # Create dataloader
-    dataloader = create_dummy_dataloader(
-        batch_size=training_config.batch_size * training_config.gradient_accumulation_steps,
-        seq_len=model_config.max_seq_len,
-        vocab_size=model_config.vocab_size,
-        distributed=trainer.distributed,
-        rank=trainer.rank,
-        world_size=trainer.world_size,
-    )
+    if args.dataset == "tinystories":
+        if args.data_path is None:
+            raise ValueError("tinystories dataset requires --data_path")
+        dataloader = create_tinystories_dataloader(
+            path=args.data_path,
+            batch_size=training_config.batch_size * training_config.gradient_accumulation_steps,
+            seq_len=model_config.max_seq_len,
+            distributed=trainer.distributed,
+            rank=trainer.rank,
+            world_size=trainer.world_size,
+        )
+    elif args.dataset == "openwebtext":
+        if args.data_path is None:
+            raise ValueError("openwebtext dataset requires --data_path")
+        dataloader = create_openwebtext_dataloader(
+            path=args.data_path,
+            batch_size=training_config.batch_size * training_config.gradient_accumulation_steps,
+            seq_len=model_config.max_seq_len,
+            distributed=trainer.distributed,
+            rank=trainer.rank,
+            world_size=trainer.world_size,
+        )
+    else:
+        dataloader = create_dummy_dataloader(
+            batch_size=training_config.batch_size * training_config.gradient_accumulation_steps,
+            seq_len=model_config.max_seq_len,
+            vocab_size=model_config.vocab_size,
+            distributed=trainer.distributed,
+            rank=trainer.rank,
+            world_size=trainer.world_size,
+        )
 
     # Training loop
     if trainer.is_main_process:
