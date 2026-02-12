@@ -46,7 +46,7 @@ class TrainingConfig:
     # Schedule
     max_steps: int = 10000
     warmup_steps: int = 1000
-    log_interval: int = 10
+    log_interval: int = 1
     eval_interval: int = 500
     save_interval: int = 1000
 
@@ -115,23 +115,39 @@ class DistributedTrainer:
         if torch.cuda.is_available():
             self.device = torch.device(f"cuda:{self.local_rank}")
             torch.cuda.set_device(self.device)
+            device_type = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = torch.device("mps")
+            device_type = "mps"
         else:
             self.device = torch.device("cpu")
+            device_type = "cpu"
 
         # Setup mixed precision
         mp = self.training_config.mixed_precision
-        if mp == "bf16" and torch.cuda.is_bf16_supported():
-            self.dtype = torch.bfloat16
-            self.autocast_ctx = torch.autocast(device_type="cuda", dtype=torch.bfloat16)
-        elif mp == "fp16":
-            self.dtype = torch.float16
-            self.autocast_ctx = torch.autocast(device_type="cuda", dtype=torch.float16)
+        if device_type == "cuda":
+            if mp == "bf16" and torch.cuda.is_bf16_supported():
+                self.dtype = torch.bfloat16
+                self.autocast_ctx = torch.autocast(device_type="cuda", dtype=torch.bfloat16)
+            elif mp == "fp16":
+                self.dtype = torch.float16
+                self.autocast_ctx = torch.autocast(device_type="cuda", dtype=torch.float16)
+            else:
+                self.dtype = torch.float32
+                self.autocast_ctx = nullcontext()
+        elif device_type == "mps":
+            if mp == "fp16":
+                self.dtype = torch.float16
+                self.autocast_ctx = torch.autocast(device_type="mps", dtype=torch.float16)
+            else:
+                self.dtype = torch.float32
+                self.autocast_ctx = nullcontext()
         else:
             self.dtype = torch.float32
             self.autocast_ctx = nullcontext()
 
-        # Gradient scaler for fp16
-        self.scaler = torch.amp.GradScaler() if mp == "fp16" else None
+        # Gradient scaler for fp16 (CUDA only)
+        self.scaler = torch.amp.GradScaler() if (mp == "fp16" and device_type == "cuda") else None
 
         if self.is_main_process:
             print(f"Device: {self.device}")
@@ -434,7 +450,7 @@ class DistributedTrainer:
         self.global_step = checkpoint["global_step"]
         self.tokens_seen = checkpoint["tokens_seen"]
 
-        if self.is_main_process():
+        if self.is_main_process:
             print(f"Loaded Checkpoint from {path} (step {self.global_step})")
 
 
