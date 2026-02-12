@@ -118,6 +118,16 @@ python src/training/ddp_trainer.py \
 python src/training/ddp_trainer.py --dataset dummy --model_size small --max_steps 50
 ```
 
+### 7. Inference from a Checkpoint
+
+```bash
+python src/eval/infer.py \
+  --checkpoint checkpoints/final.pt \
+  --model_size small \
+  --prompt "Once upon a time," \
+  --max_new_tokens 50
+```
+
 ## 📊 Key Concepts Explained
 
 ### Data Parallelism (DDP)

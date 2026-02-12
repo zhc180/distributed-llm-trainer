@@ -1,3 +1,6 @@
 # Dataset files
 src/data/*.txt
 src/data/*.gz
+
+# Checkpoints
+checkpoints/
