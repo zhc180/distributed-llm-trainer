@@ -352,8 +352,6 @@ class DistributedTrainer:
     def save_checkpoint(self, path: str):
         """Save training checkpoint.
 
-        TODO: Implement checkpoint saving
-
         Checkpointing lets you resume training after interruptions.
         In distributed training, only rank 0 should save (otherwise
         all ranks write the same file simultaneously).
@@ -382,12 +380,28 @@ class DistributedTrainer:
 
         Hint: torch.save uses Python's pickle under the hood
         """
-        raise NotImplementedError("Implement save_checkpoint")
+        if not self.is_main_process:
+            return
+        
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        model = self.model.module if self.distributed else self.model
+
+        checkpoint = {
+            "model": model.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "global_step": self.global_step,
+            "tokens_seen": self.tokens_seen,
+            "model_config": self.model_config,
+            "training_config": self.training_config
+        }
+
+        torch.save(checkpoint, path)
+
+
 
     def load_checkpoint(self, path: str):
         """Load training checkpoint.
-
-        TODO: Implement checkpoint loading
 
         Steps:
         1. Load checkpoint dict:
@@ -412,7 +426,17 @@ class DistributedTrainer:
         - Without restoring these, training "restarts" with cold optimizer
         - This causes a spike in loss after resuming
         """
-        raise NotImplementedError("Implement load_checkpoint")
+        checkpoint = torch.load(path, map_location=self.device)
+        model = self.model.module if self.distributed else self.model
+
+        model.load_state_dict(checkpoint["model"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.global_step = checkpoint["global_step"]
+        self.tokens_seen = checkpoint["tokens_seen"]
+
+        if self.is_main_process():
+            print(f"Loaded Checkpoint from {path} (step {self.global_step})")
+
 
 
 def create_dummy_dataloader(
