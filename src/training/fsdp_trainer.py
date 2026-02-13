@@ -182,12 +182,13 @@ class FSDPTrainer:
         Question to think about: What happens if you wrap too granularly (e.g., every Linear)?
         Answer: Too much communication overhead from frequent all-gather/reduce-scatter.
         """
-        raise NotImplementedError("Implement FSDP wrapping policy")
+        return functools.partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={TransformerBlock},
+        )
 
     def _get_mixed_precision_policy(self) -> Optional[MixedPrecision]:
         """Create mixed precision policy for FSDP.
-
-        TODO: Implement mixed precision policy
 
         Mixed precision trains with lower precision (FP16/BF16) to:
         1. Reduce memory usage (~2x)
@@ -223,7 +224,16 @@ class FSDPTrainer:
         """
         mp = self.fsdp_config.mixed_precision
 
-        raise NotImplementedError("Implement mixed precision policy")
+        if mp == "bf16":
+            return MixedPrecision(param_dtype=torch.bfloat16,
+                                  reduce_dtype=torch.bfloat16,
+                                  buffer_dtype=torch.bfloat16)
+        elif mp == "fp16":
+            return MixedPrecision(param_dtype=torch.float16,
+                                  reduce_dtype=torch.float16,
+                                  buffer_dtype=torch.float16)
+        else:
+            return None
 
     def _get_sharding_strategy(self) -> ShardingStrategy:
         """Get sharding strategy from config.
