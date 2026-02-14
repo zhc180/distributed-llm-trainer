@@ -405,8 +405,6 @@ class FSDPTrainer:
     def save_checkpoint(self, path: str):
         """Save FSDP checkpoint.
 
-        TODO: Implement FSDP checkpoint saving
-
         FSDP checkpointing is tricky because the model is SHARDED across GPUs!
         Each GPU only has a piece of the model.
 
@@ -443,7 +441,28 @@ class FSDPTrainer:
 
         Hint: Check self.is_main_process before saving/printing
         """
-        raise NotImplementedError("Implement FSDP checkpoint saving")
+        if self.is_main_process:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+        
+        save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        with FSDP.state_dict_type(self.model, StateDictType.FULL_STATE_DICT, save_policy):
+            model_state = self.model.state_dict()
+            optim_state = FSDP.optim_state_dict(self.model, self.optimizer)
+
+        if self.is_main_process:
+            checkpoint = {
+                "model": model_state,
+                "optimizer": optim_state,
+                "global_step": self.global_step,
+                "tokens_seen": self.tokens_seen,
+                "model_config": self.model_config,
+                "training_config": self.training_config,
+                "fsdp_config": self.fsdp_config,
+            }
+            torch.save(checkpoint, path)
+            print(f"Saved checkpoint to {path} (step {self.global_step})")
+
+        dist.barrier()  # Synchronize all processes
 
     def load_checkpoint(self, path: str):
         """Load FSDP checkpoint."""
