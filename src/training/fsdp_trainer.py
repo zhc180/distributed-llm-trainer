@@ -158,8 +158,6 @@ class FSDPTrainer:
     def _get_fsdp_policy(self):
         """Create FSDP wrapping policy.
 
-        TODO: Implement FSDP wrapping policy
-
         FSDP needs to know HOW to shard your model. The wrapping policy
         determines which modules become separate FSDP units.
 
@@ -238,8 +236,6 @@ class FSDPTrainer:
     def _get_sharding_strategy(self) -> ShardingStrategy:
         """Get sharding strategy from config.
 
-        TODO: Implement sharding strategy mapping
-
         FSDP supports different sharding strategies (ZeRO stages):
 
         FULL_SHARD (ZeRO-3):
@@ -270,7 +266,13 @@ class FSDPTrainer:
 
         Hint: ShardingStrategy.FULL_SHARD, ShardingStrategy.SHARD_GRAD_OP, etc.
         """
-        raise NotImplementedError("Implement sharding strategy mapping")
+        strategies = {
+            "FULL_SHARD": ShardingStrategy.FULL_SHARD,
+            "SHARD_GRAD_OP": ShardingStrategy.SHARD_GRAD_OP,
+            "NO_SHARD": ShardingStrategy.NO_SHARD,
+        }
+        return strategies[self.fsdp_config.sharding_strategy]
+        
 
     def _setup_model(self):
         """Build and wrap model with FSDP."""
